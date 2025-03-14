@@ -120,4 +120,3 @@ export async function checkCooldown() {
     return { onCooldown: false }
   }
 }
-
