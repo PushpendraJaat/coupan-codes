@@ -1,101 +1,146 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Check, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { claimCoupon, checkCooldown } from "@/lib/actions";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [coupon, setCoupon] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    const fetchCooldown = async () => {
+      try {
+        const cooldownData = await checkCooldown();
+        if (cooldownData.onCooldown) {
+          setCooldown(cooldownData.remainingTime ?? null);
+        }
+      } catch (err) {
+        console.error("Error checking cooldown:", err);
+      }
+    };
+
+    fetchCooldown();
+
+    if (cooldown !== null && cooldown > 0) {
+      interval = setInterval(() => {
+        setCooldown((prev) => (prev && prev > 0 ? prev - 1 : null));
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [cooldown]);
+
+  const handleClaimCoupon = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await claimCoupon();
+
+      if (result.error) {
+        setError(result.error);
+        if (result.cooldown) {
+          setCooldown(result.cooldown);
+        }
+      } else if (result.coupon) {
+        setCoupon(result.coupon);
+        toast({
+          title: "Coupon Claimed!",
+          description: `You've successfully claimed coupon: ${result.coupon}`,
+        });
+        setCooldown(3600); // 1 hour cooldown
+      }
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again later.");
+      console.error("Error claiming coupon:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
+      <Card className="w-full max-w-lg shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl font-semibold">
+            Coupon Distribution
+          </CardTitle>
+          <CardDescription>
+            Claim your exclusive coupon code below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <div>
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </div>
+            </Alert>
+          )}
+
+          {coupon && (
+            <Alert className="bg-green-100 border-green-300">
+              <Check className="h-5 w-5 text-green-600" />
+              <div>
+                <AlertTitle className="text-green-800">Success!</AlertTitle>
+                <AlertDescription className="text-green-700">
+                  Your coupon code:{" "}
+                  <span className="font-bold">{coupon}</span>
+                </AlertDescription>
+              </div>
+            </Alert>
+          )}
+
+          {cooldown !== null && cooldown > 0 && (
+            <Alert>
+              <Clock className="h-5 w-5 text-blue-500" />
+              <div>
+                <AlertTitle>Cooldown Period</AlertTitle>
+                <AlertDescription>
+                  You can claim another coupon in{" "}
+                  <span className="font-bold">
+                    {formatTime(cooldown)}
+                  </span>
+                </AlertDescription>
+              </div>
+            </Alert>
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button
+            className="w-full"
+            onClick={handleClaimCoupon}
+            disabled={loading || (cooldown !== null && cooldown > 0)}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            {loading ? "Processing..." : "Claim Coupon"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </main>
   );
 }
