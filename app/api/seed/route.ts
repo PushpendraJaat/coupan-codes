@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/db"
 
-// This is a protected route that should only be accessible in development
-// or with proper authentication in production
 export async function GET() {
-  // Check if we're in development mode or if an admin token is provided
-  if (process.env.NODE_ENV !== "development") {
-    const isAuthorized = false // Implement proper auth check here
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-  }
-
   try {
     const { db } = await connectToDatabase()
 
