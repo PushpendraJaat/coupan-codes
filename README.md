@@ -68,7 +68,7 @@ Create a `.env.local` file in the root directory with the following variables:
 1. Clone the repository:
    ```bash
    git clone https://github.com/PushpendraJaat/coupan-codes.git
-   cd ccoupan-codes
+   cd coupan-codes
 
 
 2. Install dependencies:
